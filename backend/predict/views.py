@@ -2,8 +2,10 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from tensorflow import keras
-from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.text import Tokenizer, tokenizer_from_json
 from tensorflow.keras.preprocessing.sequence import pad_sequences
+import json
+import pandas as pd
 from .serializers import PredictionSerializer
 
 # Load the RNN models from the HDF5 files
@@ -35,20 +37,21 @@ class PredictionView(APIView):
         else:
             return Response({'error': 'Invalid model type'},status=status.HTTP_400_BAD_REQUEST)
         
-        # Tokenizing the data
-        tokenizer = Tokenizer()
-        tokenizer.fit_on_texts(news)
-        
-        # word_index = tokenizer.word_index
-        sequences = tokenizer.texts_to_sequences(news)
+        # df = pd.read_csv('./models/train.csv')
+
+        loaded_tokenizer = Tokenizer()
+        # loaded_tokenizer.fit_on_texts(news)
+        # Load the tokenizer back from the JSON file
+        with open('./models/tokenizer.json', 'r', encoding='utf-8') as json_file:
+            loaded_tokenizer_json = json.load(json_file)
+            loaded_tokenizer = tokenizer_from_json(loaded_tokenizer_json)
+
+        sequences = loaded_tokenizer.texts_to_sequences(news)
         
         # Padding the Tokenize data
-        padded_data = pad_sequences(sequences, maxlen=1000)
+        padded_data = pad_sequences(sequences, maxlen=600, padding="post",truncating="post")
         
-        # Predicting the news is fake or real
         predictions = model.predict(padded_data)
-
-        print(predictions)
        
         # Postprocess the predictions if needed
         return Response({'predictions': predictions.tolist()},status=status.HTTP_200_OK)
